@@ -5,7 +5,8 @@
 # eRah is employed for peak deconvolution, alignment, and compound annotation.
 # ClassyFire is used for compound classification.
 #Please note that the current version of the MassBank database does not include mass spectral data for the internal standards N-tetracosane-d50 and chrysene-d12. 
-#The base-peak m/z of N-tetracosane-d50 is 66 (sometimes 50), and the base-peak m/z of chrysene-d12 is 240.
+#The base-peak m/z of n-tetracosane-d50 is 66 (sometimes 50), and the base-peak m/z of chrysene-d12 is 240.
+# MassBank_NIST_20241126_rev.msp include mass spectral data for the internal standards N-tetracosane-d50 and chrysene-d12. 
 # Currently, InChIKeys from the MassBank database are used to retrieve compound classifications. 
 #This script provides results for both peak area and peak height.
 ######
@@ -23,7 +24,7 @@ library(tibble)
 library(stringr)
 library(future)
 # Define the base directory for data storage and retrieval.
-base_dir <- "~/Desktop/larch_litter"#file path
+base_dir <- "~/Desktop/larch" #file path
 
 ##############################
 # 1. Loading GC-MS Data
@@ -50,10 +51,9 @@ exp <- newExp(instrumental=instrumental, phenotype=phenotype, info="GCMS Untarge
 
 # MassBank_NIST.msp: https://github.com/MassBank/MassBank-data/releases/tag/2024.11
 
-MassBank_NIST_file_path <- file.path(base_dir, "MassBank_NIST_20241126.msp") 
+MassBank_NIST_file_path <- file.path(base_dir, "MassBank_NIST_20241126_rev.msp") 
 
 # Importing the MassBank MSP database
-## Bug Alert: The importMSP() function in eRah incorrectly stores Accession IDs as InChi values.
 MassBank_NIST_db <- importMSP(file = MassBank_NIST_file_path, 
                               DB.name = "MassBank_NIST",              # Database name
                               DB.version = "2024.11", # Database version
@@ -65,8 +65,8 @@ save(MassBank_NIST_db, file = file.path(base_dir, "MassBank_NIST_db.rda"))
 load(file.path(base_dir, "MassBank_NIST_db.rda"))
 
 # Parsing MSP data
-## A custom function, read_msp_with_structures(), extracts Name, Formula, InChIKey, InChI, and SMILES
-## from the MSP file and converts it into a data frame.
+# A custom function, read_msp_with_structures(), extracts Name, Formula, InChIKey, InChI, and SMILES
+# from the MSP file and converts it into a data frame.
 read_msp_with_structures <- function(msp_file) {
   lines <- readLines(msp_file)
   compounds <- list()
@@ -133,7 +133,7 @@ MassBank_NIST_lookup <- MassBank_NIST_data %>%
 #####################################
 # 3. Peak Deconvolution
 #####################################
-plan(future::multisession,workers = 2)
+plan(future::multisession,workers = 4)
 # Setting deconvolution parameters
 dec_params <- setDecPar(min.peak.width = 1.8, # Min peak width (sec)
                         min.peak.height = 1000, # Minimum peak height (intensity threshold), should be >5 times of noise
@@ -171,8 +171,7 @@ head(all_peaks)
 # Save to a CSV file
 write.csv(all_peaks, file = file.path(base_dir, "1_deconvoluted_peaks.csv"), row.names = FALSE)
 
-############################################
-# Detecting standard compound peaks
+## Detecting standard compound peaks
 ## Specific standard compounds (N-Tetracosane-d50, Chrysene-d12) are identified based on:
 ## base m/z values and expected retention time (RT)
 ## A verification step ensures that all samples contain these standard compounds. 
@@ -228,7 +227,7 @@ for (i in seq_along(sample_names)) {
 
 print(std_dec)
 
-# Evaluating retention time variability
+## Evaluating retention time variability
 ## The maximum and minimum retention times (RT) for the standard compounds are calculated. 
 ## This RT variation (in seconds) is used to determine an appropriate max.time.dist parameter for alignment.
 RT_diff_N_Tetracosane_d50 <- (max(std_dec$N_Tetracosane_d50_RT, na.rm = TRUE) - 
@@ -240,21 +239,21 @@ print(paste("Chrysene_d12:", RT_diff_Chrysene_d12, "sec"))
 
 
 #############################
-### 4. Peak Alignment
+# 4. Peak Alignment
 #############################
 # Setting alignment parameters
 align_params <- setAlPar(min.spectra.cor = 0.80,  # Minimum spectral correlation (0 to 1)
-                         max.time.dist = 55,　# Maximum retention time tolerance (sec)
+                         max.time.dist = 120,　# Maximum retention time tolerance (sec)
                          mz.range = 46:650) # m/z range for analysis.
 
 # Executing peak alignment
-#exp_align <- alignComp(exp_dec, alParameters = align_params) #Small number of samples
-exp_align <- alignComp(exp_dec, alParameters = align_params, blocks.size = 7 ) #large number of samples
+exp_align <- alignComp(exp_dec, alParameters = align_params) #Small number of samples
+#exp_align <- alignComp(exp_dec, alParameters = align_params, blocks.size = 10 ) #large number of samples#7
 # Save and load
 save(exp_align, file = file.path(base_dir, "exp_align.rda"))
 load(file.path(base_dir, "exp_align.rda"))
 
-# Verifying standard compound alignment
+## Verifying standard compound alignment
 ## Standard compounds should have the same AlignID across all samples. 
 ## If discrepancies are found, the data quality should be re-evaluated and remeasurement of samples is recommended.
 
@@ -321,9 +320,9 @@ head(aligned_area_df)
 write.csv(aligned_area_df, file = file.path(base_dir, "2.2_aligned_peaks_area.csv"), row.names = FALSE)
 
 ##############################
-### 5. Compound Annotation
+# 5. Compound Annotation
 ##############################
-# Identifying Compounds
+## Identifying Compounds
 ## Annotate peaks by matching them with the MassBank_NIST database.
 ## Only the highest MatchFactor compound candidate is retained.
 exp_annot <- identifyComp(exp_align, 
@@ -362,7 +361,7 @@ write.csv(aligned_peaks_annotated,
 head(aligned_peaks_annotated)
 
 ####################################################
-## 6.Merge duplicated peaks
+# 6.Duplicate peak consolidation
 ####################################################
 ##extract the base m/z from a Spectra string
 get_base_mz <- function(spectra_str) {
@@ -418,7 +417,6 @@ write.csv(final_df, file = file.path(base_dir, "4.2_aligned_peaks_area_with_anno
 # Confirm data
 head(final_df)
 
-##########################################
 # Loading data
 df <- read.csv(file.path(base_dir, "4.2_aligned_peaks_area_with_annotation_base_mz.csv"))
 
@@ -433,39 +431,42 @@ sample_cols <- sample_cols[sapply(df[, sample_cols], is.numeric)]
 print(sample_cols)
 
 ## Grouping: by base_mz and tmean ± time window (the time setting is consistent with the alignment time distance)
-time_window <- 55 / 60  # Convert seconds to minutes
 
-# Sort the data frame by Name.1, base_mz, tmean
+time_window <- 120 / 60
+
 df <- df %>% arrange(Name.1, base_mz, tmean)
 
-# Create an empty list to store group information
 grouped_rows <- list()
-
-# Used to mark whether each line has been used
 used_indices <- rep(FALSE, nrow(df))
 
-# Traverse each row and group them
+# ===== Requires the name of a compound that triggers 50/66 fusions. =====
+special_names <- c("Tetracosane-d50")
+# ============================================
+
 for (i in seq_len(nrow(df))) {
   if (used_indices[i]) next 
   
-  ref_name <- df$Name.1[i]                    
-  ref_mz   <- df$base_mz[i]                   
-  ref_rt   <- df$tmean[i]                      
+  ref_name <- df$Name.1[i]
+  ref_mz   <- df$base_mz[i]
+  ref_rt   <- df$tmean[i]
   
-  # Find the rows that match the time window conditions and add their indexes to the group
-  group_idx <- which(
-    df$Name.1 == ref_name &                     
-      df$base_mz == ref_mz &                     
-      abs(df$tmean - ref_rt) <= time_window &    
-      !used_indices                              
-  )
+  same_name  <- df$Name.1 == ref_name
+  exact_mz   <- df$base_mz == ref_mz
+  time_close <- abs(df$tmean - ref_rt) <= time_window
+  not_used   <- !used_indices
+  
+  # =====Only Tetracosane-d50 allows for 50/66 interoperability. =====
+  special_cross_mz_ok_scalar <- (ref_name %in% special_names) && (ref_mz %in% c(50, 66))
+  special_cross_mz_vec <- special_cross_mz_ok_scalar & (df$base_mz %in% c(50, 66))
+  mz_ok <- exact_mz | special_cross_mz_vec
+  # ============================================
+  
+  group_idx <- which(same_name & mz_ok & time_close & not_used)
   
   grouped_rows[[length(grouped_rows) + 1]] <- group_idx
   used_indices[group_idx] <- TRUE
 }
 
-######################################################################
-## Merge each group, keep the best annotation and calculate FoundIn
 
 nonzero_sample_count <- function(group_df, sample_cols) {
   sample_matrix <- group_df[, sample_cols, drop = FALSE]
@@ -483,37 +484,41 @@ nonzero_sample_count <- function(group_df, sample_cols) {
 filtered_peaks <- lapply(grouped_rows, function(group) {
   group_df <- df[group, ]
   
-  # Select the line with the highest matching score as the best annotation
   best <- group_df[which.max(group_df$MatchFactor.1), ]
   
   for (col in sample_cols) {
     best[[col]] <- max(as.numeric(as.character(group_df[[col]])), na.rm = TRUE)
   }
   
-  # Calculate FoundIn
   best$FoundIn <- nonzero_sample_count(group_df, sample_cols)
+  
+  # ===== If the group is a 50/66 parallel group of Tetracosane-d50, 
+  #then the base_mz value will be uniformly retained as 66 in the output. =====
+  if (best$Name.1 %in% special_names && all(group_df$base_mz %in% c(50, 66))) {
+    best$base_mz <- 66
+  }
+  # =====================================================================================
   
   return(best)
 })
 
 filtered_df <- bind_rows(filtered_peaks)
 
-# Output merged annotation peak table
-write.csv(filtered_df,
-          file = file.path(base_dir, "5_filtered_annotated_peaks_area.csv"),
-          row.names = FALSE)
+write.csv(
+  filtered_df,
+  file = file.path(base_dir, "5_filtered_annotated_peaks_area.csv"),
+  row.names = FALSE
+)
 
-
-###################################################################################################
 # Integrating annotation results
-##The annotation results are merged with MassBank_NIST_lookup to append chemical information (Name, Formula, InChIKey, InChI, SMILES).
+#The annotation results are merged with MassBank_NIST_lookup to append chemical information (Name, Formula, InChIKey, InChI, SMILES).
 
 annot_result <- idList(exp_annot, id.database = MassBank_NIST_db) %>%
   mutate(Name.1   = stringr::str_trim(Name.1),
          Formula.1 = stringr::str_trim(Formula.1)) %>%
   left_join(MassBank_NIST_lookup %>% mutate(Name = str_trim(Name), Formula = str_trim(Formula)),
             by = c("Name.1" = "Name", "Formula.1" = "Formula"))
-######################################################
+
 ##Merge structure info into filtered_df
 # Load the filtered peak table
 # Load MassBank data (with structural information)
@@ -530,7 +535,7 @@ write.csv(filtered_df,
           file = file.path(base_dir, "6_filtered_peaks_area_with_InChIKey.csv"),
           row.names = FALSE)
 
-# Confirming annotation of standard compounds
+## Confirming annotation of standard compounds
 ## The AlignID of the standard compounds is used to filter the annotation results, ensuring correct identification.
 std_annot <- annot_result %>%
   filter(AlignID %in% unique(std_align$N_Tetracosane_d50_AlignID) | AlignID %in% unique(std_align$Chrysene_d12_AlignID))
@@ -636,31 +641,9 @@ filtered_df_classified <- filtered_df_with_structure %>%
 
 #Save the filter results with classification information
 write.csv(filtered_df_classified,
-          file = file.path(base_dir, "7.1_filtered_peaks_area_with_classification.csv"),
+          file = file.path(base_dir, "7_filtered_peaks_area_with_classification.csv"),
           row.names = FALSE)
 
-
-# Loading classified peak area data
-classified_df <- read.csv(file.path(base_dir, "7.1_filtered_peaks_area_with_classification.csv"))
-
-# Load the filtered annotated peak table
-annotated_peaks_df <- read.csv(file.path(base_dir, "5.2_filtered_annotated_peaks_height.csv"))
-
-# Select the required columns
-selected_columns <- c("InChIKey", "InChI","SMILES.x", "Kingdom", "Superclass", "Class", "Subclass", "Level_5", "Level_6", "Level_7")
-
-classified_df_selected <- classified_df %>%
-  dplyr::select(AlignID, selected_columns)
-
-# Merge using AlignID
-merged_df <- left_join(annotated_peaks_df, classified_df_selected, by = "AlignID")
-
-# Save the merged results and obtain peak height with classification data
-write.csv(merged_df, 
-          file = file.path(base_dir, "7.2_filtered_peaks_height_with_classification.csv"),
-          row.names = FALSE)
-
-#########################################
 ## Create summary classification table
 # Make sure two data are loaded/generated:
 # 1. filtered_df_with_structure: filtered peak table + InChIKey
@@ -679,8 +662,175 @@ write.csv(compound_summary,
           file = file.path(base_dir, "8_classified_compounds_summary.csv"),
           row.names = FALSE)
 
+
+
+#######################################################
+# 8.Structural refinement
+#######################################################
+#In this step, you can use "7_filtered_peaks_area_with_classification.csv"
+#Change the identification result of compounds with MF below 80 to "Unidentified", and set the corresponding SMILES to NA.
+
+## Required packages ----
+library(rcdk)
+library(tidyverse)
+
+## Input/output file paths ----
+input_file  <- "7.1_filtered_peaks_area_with_classification.csv"
+output_file <- "7.1_filtered_peaks_area_with_LgC_class_revised.csv"
+
+## Load data ----
+df <- read.csv(input_file, stringsAsFactors = FALSE)
+
+## Extract SMILES ----
+smiles <- df$SMILES
+
+## Parse SMILES (rcdk::parse.smiles), skipping NA/empty ----
+valid_idx    <- !is.na(smiles) & smiles != ""
+smiles_valid <- smiles[valid_idx]
+
+mols    <- parse.smiles(smiles_valid)  # list of IAtomContainer
+n_total <- nrow(df)
+
+## Helper function wrapping rcdk::matches ----
+## Returns a logical vector with the same length as df
+smart_match_vec <- function(smarts, mol_list, valid_index, n_total) {
+  out <- rep(FALSE, n_total)
+  if (length(mol_list) == 0) return(out)
+  m <- rcdk::matches(smarts, mol_list)  # TRUE/FALSE for valid SMILES only
+  out[valid_index] <- m
+  out
+}
+
+## 1. Detect aromatic atoms (broad) ----
+## "a" matches aromatic atoms in SMARTS
+is_aromatic <- smart_match_vec("a", mols, valid_idx, n_total)
+
+## 1'. Detect benzene ring (C6 aromatic ring) ----
+## Lignin is defined as containing a benzene ring + phenolic OH + aryl-ether
+is_aryl_benzene <- smart_match_vec("c1ccccc1", mols, valid_idx, n_total)
+
+## 2. Detect phenolic OH ----
+## [OX2H]c = hydroxyl attached to an aromatic carbon (Ar–OH)
+has_phenolic_OH <- smart_match_vec("[OX2H]c", mols, valid_idx, n_total)
+
+## 3. Detect aryl-ether / methoxy groups ----
+## Lignin definition requires Ar–O–CH3 (e.g., guaiacol).
+has_aryl_ether_core <- smart_match_vec("cO[CH3]", mols, valid_idx, n_total)
+# has_aryl_ether_wide <- smart_match_vec("cO[C,c]", mols, valid_idx, n_total)  # optional broader rule
+
+## Use methoxy-only version for strict lignin detection
+has_aryl_ether <- has_aryl_ether_core
+## To broaden detection, uncomment:
+## has_aryl_ether <- has_aryl_ether_core | has_aryl_ether_wide
+
+## 4. LgC / non-LgC aromatic / non-aromatic classification ----
+LgC_flag <- is_aryl_benzene & has_phenolic_OH & has_aryl_ether
+non_LgC_aromatics_flag <- is_aromatic & !LgC_flag
+
+df$Aromatic_group <- NA_character_
+df$Aromatic_group[!is_aromatic]             <- "non-aromatic"
+df$Aromatic_group[non_LgC_aromatics_flag]   <- "non-LgC-aromatics"
+df$Aromatic_group[LgC_flag]                 <- "LgC"
+
+## (Optional) Additional phenol group breakdown ----
+PhC_flag <- is_aromatic & has_phenolic_OH & !has_aryl_ether
+
+df$Phenol_group <- NA_character_
+df$Phenol_group[LgC_flag]                       <- "LgC"
+df$Phenol_group[PhC_flag]                       <- "PhC"
+df$Phenol_group[is_aromatic & !has_phenolic_OH] <- "other-aromatics"
+df$Phenol_group[!is_aromatic]                   <- "non-aromatic"
+
+## 5. Lignin vs non-lignin aromatic grouping ----
+df$Lignin_nonLignin_group <- NA_character_
+df$Lignin_nonLignin_group[df$Aromatic_group == "LgC"]               <- "Lignin and derivatives"
+df$Lignin_nonLignin_group[df$Aromatic_group == "non-LgC-aromatics"] <- "Non-lignin aromatics"
+df$Lignin_nonLignin_group[df$Aromatic_group == "non-aromatic"]      <- "non-aromatic"
+
+## 6. Subclassification for non-aromatic compounds ----
+df$NonArom_subgroup <- NA_character_
+
+## 6-1) Non-aromatic Organic oxygen compounds → O-rich
+df$NonArom_subgroup[
+  df$Aromatic_group == "non-aromatic" &
+    df$Superclass == "Organic oxygen compounds"
+] <- "non-aromatic O-rich compounds"
+
+## 6-2) Non-aromatic Organoheterocyclic compounds → heterocycles
+df$NonArom_subgroup[
+  df$Aromatic_group == "non-aromatic" &
+    df$Superclass == "Organoheterocyclic compounds"
+] <- "non-aromatic heterocycles"
+
+## 6-3) All other non-aromatic
+df$NonArom_subgroup[
+  df$Aromatic_group == "non-aromatic" &
+    is.na(df$NonArom_subgroup)
+] <- "other non-aromatic"
+
+## 6-4) Upgrade carbohydrates to polysaccharide-derived
+## (from within non-aromatic O-rich compounds)
+df$NonArom_subgroup[
+  df$Aromatic_group == "non-aromatic" &
+    df$Superclass == "Organic oxygen compounds" &
+    df$Subclass == "Carbohydrates and carbohydrate conjugates"
+] <- "polysaccharide-derived"
+
+## 7. Create final Superclass_updated classification ----
+df$Superclass_updated <- case_when(
+  ## 7-1) N-containing classes
+  df$Superclass == "Organic nitrogen compounds" ~ "Organic nitrogen compounds",
+  df$Superclass == "Nucleosides, nucleotides, and analogues" ~ "Nucleosides/nucleotides",
+  df$Superclass == "Alkaloids and derivatives" ~ "Alkaloids and derivatives",
+  
+  ## 7-2) Polysaccharide-derived
+  df$Aromatic_group == "non-aromatic" &
+    df$NonArom_subgroup == "polysaccharide-derived" ~ "polysaccharide-derived",
+  
+  ## 7-3) Other major biochemical groups
+  df$Superclass == "Organic acids and derivatives" ~ "Organic acids and derivatives",
+  df$Superclass == "Lipids and lipid-like molecules" ~ "Lipids and lipid-like molecules",
+  df$Superclass %in% c("Hydrocarbons", "Hydrocarbon derivatives") ~ "Hydrocarbons",
+  df$Superclass == "Organohalogen compounds" ~ "Organohalogen compounds",
+  df$Superclass == "Organophosphorus compounds" ~ "Organophosphorus compounds",
+  df$Superclass == "Organosulfur compounds" ~ "Organosulfur compounds",
+  df$Superclass == "Organometallic compounds" ~ "Organometallic compounds",
+  df$Superclass == "Unidentified" ~ "Unidentified",
+  ## 7-4) Aromatic groups
+  df$Aromatic_group == "LgC"               ~ "Lignin and derivatives",
+  df$Aromatic_group == "non-LgC-aromatics" ~ "Non-lignin aromatics",
+  
+  ## 7-5) Non-aromatic subgroups
+  df$Aromatic_group == "non-aromatic" &
+    df$NonArom_subgroup == "non-aromatic O-rich compounds" ~ "non-aromatic O-rich compounds",
+  df$Aromatic_group == "non-aromatic" &
+    df$NonArom_subgroup == "non-aromatic heterocycles" ~ "non-aromatic heterocycles",
+  df$Aromatic_group == "non-aromatic" &
+    df$NonArom_subgroup == "other non-aromatic" ~ "non-aromatic phenylpropanoid and polyketide",
+  
+  ## 7-6) Fallback
+  TRUE ~ "Unclassified"
+)
+
+## 8. Optional summary tables ----
+cat("Superclass_updated counts:\n")
+print(with(df, table(Superclass_updated)))
+
+cat("\nSuperclass vs Superclass_updated:\n")
+print(with(df, table(Superclass, Superclass_updated)))
+
+cat("\nSuperclass × Aromatic_group:\n")
+print(with(df, table(Superclass, Aromatic_group)))
+
+cat("\nNonArom_subgroup counts:\n")
+print(with(df, table(NonArom_subgroup)))
+
+## 9. Write output ----
+write.csv(df, output_file, row.names = FALSE)
+
+
 #####################################
-# 8. Saving the Complete Environment
+# 9. Saving the Complete Environment
 #####################################
 save.image(file = file.path(base_dir, "gsms_peak_processing.RData"))
 

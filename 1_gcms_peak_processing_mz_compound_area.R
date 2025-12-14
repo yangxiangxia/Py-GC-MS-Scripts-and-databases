@@ -715,16 +715,47 @@ has_phenolic_OH <- smart_match_vec("[OX2H]c", mols, valid_idx, n_total)
 
 ## 3. Detect aryl-ether / methoxy groups ----
 ## Lignin definition requires Ar–O–CH3 (e.g., guaiacol).
-has_aryl_ether_core <- smart_match_vec("cO[CH3]", mols, valid_idx, n_total)
-# has_aryl_ether_wide <- smart_match_vec("cO[C,c]", mols, valid_idx, n_total)  # optional broader rule
+#has_aryl_ether_core <- smart_match_vec("cO[CH3]", mols, valid_idx, n_total)
+has_aryl_ether_wide <- smart_match_vec("cO[C,c]", mols, valid_idx, n_total)  # optional broader rule
 
 ## Use methoxy-only version for strict lignin detection
-has_aryl_ether <- has_aryl_ether_core
+has_aryl_ether <- has_aryl_ether_wide
 ## To broaden detection, uncomment:
 ## has_aryl_ether <- has_aryl_ether_core | has_aryl_ether_wide
 
-## 4. LgC / non-LgC aromatic / non-aromatic classification ----
-LgC_flag <- is_aryl_benzene & has_phenolic_OH & has_aryl_ether
+## 4.Detect specific LgC structures (derived from H-type lignin (p-coumaryl alcohol monomer))
+## Define the three specific SMILES (source:pubchem) that should be classified as LgC:
+## 1) C=CC1=CC=C(C=C1)O      - 4-Vinylphenol
+## 2) CC1=CC=C(C=C1)O        - 4-Methylphenol/p-Cresol/Para-Cresol
+## 3) CCC1=CC=C(C=C1)O       - 4-Ethylphenol/Para-Ethylphenol/P-Ethylphenol
+
+specific_lgc_smiles <- c(
+  "C=CC1=CC=C(C=C1)O",     # 4-Vinylphenol
+  "CC1=CC=C(C=C1)O",       # 4-Methylphenol
+  "CCC1=CC=C(C=C1)O"       # 4-Ethylphenol
+)
+
+## Check if compound SMILES exactly matches any of the specific LgC structures
+## (Case-insensitive comparison, also handle potential whitespace)
+is_specific_lgc <- rep(FALSE, n_total)
+for (i in seq_along(smiles)) {
+  if (!is.na(smiles[i]) && smiles[i] != "") {
+    # Normalize SMILES for comparison (remove spaces, convert to lowercase)
+    normalized_smiles <- tolower(trimws(smiles[i]))
+    normalized_specific <- tolower(trimws(specific_lgc_smiles))
+    
+    if (normalized_smiles %in% normalized_specific) {
+      is_specific_lgc[i] <- TRUE
+    }
+  }
+}
+
+is_specific_lgc_combined <- is_specific_lgc  # Only exact SMILES matches
+
+## 5. LgC / non-LgC aromatic / non-aromatic classification ----
+## UPDATED: Include specific LgC structures
+LgC_flag <- (is_aryl_benzene & has_phenolic_OH & has_aryl_ether) | is_specific_lgc_combined
+
 non_LgC_aromatics_flag <- is_aromatic & !LgC_flag
 
 df$Aromatic_group <- NA_character_
@@ -733,7 +764,10 @@ df$Aromatic_group[non_LgC_aromatics_flag]   <- "non-LgC-aromatics"
 df$Aromatic_group[LgC_flag]                 <- "LgC"
 
 ## (Optional) Additional phenol group breakdown ----
-PhC_flag <- is_aromatic & has_phenolic_OH & !has_aryl_ether
+## UPDATED: PhC now strictly requires benzene ring
+## PhC = Phenolic Carbon = benzene ring + phenolic OH (no aryl-ether)
+## This excludes heterocyclic phenols (e.g., hydroxypyridine, hydroxyindole)
+PhC_flag <- is_aryl_benzene & has_phenolic_OH & !has_aryl_ether & !is_specific_lgc_combined
 
 df$Phenol_group <- NA_character_
 df$Phenol_group[LgC_flag]                       <- "LgC"
@@ -741,34 +775,34 @@ df$Phenol_group[PhC_flag]                       <- "PhC"
 df$Phenol_group[is_aromatic & !has_phenolic_OH] <- "other-aromatics"
 df$Phenol_group[!is_aromatic]                   <- "non-aromatic"
 
-## 5. Lignin vs non-lignin aromatic grouping ----
+## 6. Lignin vs non-lignin aromatic grouping ----
 df$Lignin_nonLignin_group <- NA_character_
 df$Lignin_nonLignin_group[df$Aromatic_group == "LgC"]               <- "Lignin and derivatives"
 df$Lignin_nonLignin_group[df$Aromatic_group == "non-LgC-aromatics"] <- "Non-lignin aromatics"
 df$Lignin_nonLignin_group[df$Aromatic_group == "non-aromatic"]      <- "non-aromatic"
 
-## 6. Subclassification for non-aromatic compounds ----
+## 7. Subclassification for non-aromatic compounds ----
 df$NonArom_subgroup <- NA_character_
 
-## 6-1) Non-aromatic Organic oxygen compounds → O-rich
+## 7-1) Non-aromatic Organic oxygen compounds → O-rich
 df$NonArom_subgroup[
   df$Aromatic_group == "non-aromatic" &
     df$Superclass == "Organic oxygen compounds"
 ] <- "non-aromatic O-rich compounds"
 
-## 6-2) Non-aromatic Organoheterocyclic compounds → heterocycles
+## 7-2) Non-aromatic Organoheterocyclic compounds → heterocycles
 df$NonArom_subgroup[
   df$Aromatic_group == "non-aromatic" &
     df$Superclass == "Organoheterocyclic compounds"
 ] <- "non-aromatic heterocycles"
 
-## 6-3) All other non-aromatic
+## 7-3) All other non-aromatic
 df$NonArom_subgroup[
   df$Aromatic_group == "non-aromatic" &
     is.na(df$NonArom_subgroup)
 ] <- "other non-aromatic"
 
-## 6-4) Upgrade carbohydrates to polysaccharide-derived
+## 7-4) Upgrade carbohydrates to polysaccharide-derived
 ## (from within non-aromatic O-rich compounds)
 df$NonArom_subgroup[
   df$Aromatic_group == "non-aromatic" &
@@ -776,18 +810,21 @@ df$NonArom_subgroup[
     df$Subclass == "Carbohydrates and carbohydrate conjugates"
 ] <- "polysaccharide-derived"
 
-## 7. Create final Superclass_updated classification ----
+## 8. Create final Superclass_updated classification ----
 df$Superclass_updated <- case_when(
-  ## 7-1) N-containing classes
+  ## LgC classification (includes specific LgC structures)
+  df$Aromatic_group == "LgC" ~ "Lignin and derivatives",
+  
+  ## N-containing classes
   df$Superclass == "Organic nitrogen compounds" ~ "Organic nitrogen compounds",
   df$Superclass == "Nucleosides, nucleotides, and analogues" ~ "Nucleosides/nucleotides",
   df$Superclass == "Alkaloids and derivatives" ~ "Alkaloids and derivatives",
   
-  ## 7-2) Polysaccharide-derived
+  ## Polysaccharide-derived
   df$Aromatic_group == "non-aromatic" &
     df$NonArom_subgroup == "polysaccharide-derived" ~ "polysaccharide-derived",
   
-  ## 7-3) Other major biochemical groups
+  ## Other major biochemical groups
   df$Superclass == "Organic acids and derivatives" ~ "Organic acids and derivatives",
   df$Superclass == "Lipids and lipid-like molecules" ~ "Lipids and lipid-like molecules",
   df$Superclass %in% c("Hydrocarbons", "Hydrocarbon derivatives") ~ "Hydrocarbons",
@@ -796,11 +833,11 @@ df$Superclass_updated <- case_when(
   df$Superclass == "Organosulfur compounds" ~ "Organosulfur compounds",
   df$Superclass == "Organometallic compounds" ~ "Organometallic compounds",
   df$Superclass == "Unidentified" ~ "Unidentified",
-  ## 7-4) Aromatic groups
-  df$Aromatic_group == "LgC"               ~ "Lignin and derivatives",
+  
+  ## Other aromatic groups
   df$Aromatic_group == "non-LgC-aromatics" ~ "Non-lignin aromatics",
   
-  ## 7-5) Non-aromatic subgroups
+  ## Non-aromatic subgroups
   df$Aromatic_group == "non-aromatic" &
     df$NonArom_subgroup == "non-aromatic O-rich compounds" ~ "non-aromatic O-rich compounds",
   df$Aromatic_group == "non-aromatic" &
@@ -808,11 +845,11 @@ df$Superclass_updated <- case_when(
   df$Aromatic_group == "non-aromatic" &
     df$NonArom_subgroup == "other non-aromatic" ~ "non-aromatic phenylpropanoid and polyketide",
   
-  ## 7-6) Fallback
+  ## Fallback
   TRUE ~ "Unclassified"
 )
 
-## 8. Optional summary tables ----
+## 9. Optional summary tables ----
 cat("Superclass_updated counts:\n")
 print(with(df, table(Superclass_updated)))
 
@@ -825,12 +862,5 @@ print(with(df, table(Superclass, Aromatic_group)))
 cat("\nNonArom_subgroup counts:\n")
 print(with(df, table(NonArom_subgroup)))
 
-## 9. Write output ----
+## 10. Write output ----
 write.csv(df, output_file, row.names = FALSE)
-
-
-#####################################
-# 9. Saving the Complete Environment
-#####################################
-save.image(file = file.path(base_dir, "gsms_peak_processing.RData"))
-

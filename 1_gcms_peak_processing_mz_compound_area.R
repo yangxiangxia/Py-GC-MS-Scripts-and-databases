@@ -580,7 +580,7 @@ p2 <- ggplot(filtered_df, aes(x = MatchFactor.1, y = FoundIn)) +
 print(p2)
 
 ####################################################
-# 7. Compound Classification (for filtered compounds)
+# 7. Compound for ClassyFire Classification (for filtered compounds)
 #####################################################
 
 # Using ClassyFire for Compound Classification

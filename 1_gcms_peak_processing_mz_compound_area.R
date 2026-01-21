@@ -1114,56 +1114,6 @@ cat("  Unidentified:", sum(!is.na(sc) & sc == "Unidentified", na.rm = TRUE), "\n
 cat("Locked carbohydrates (subclass):", sum(is_locked_carbohydrate, na.rm = TRUE), "\n")
 cat("Total locked categories:", sum(is_locked_superclass | is_locked_carbohydrate, na.rm = TRUE), "\n\n")
 
-## Check how many locked compounds are overridden by higher-priority rules (expected behavior)
-cat("--- Locked overridden by higher priorities (expected) ---\n")
-all_locked <- is_locked_superclass | is_locked_carbohydrate
-cat("Locked but final = Lignin and derivatives:",
-    sum(all_locked & PyroClass_final == "Lignin and derivatives", na.rm = TRUE), "\n")
-cat("Locked but final = Phenolic compounds:",
-    sum(all_locked & PyroClass_final == "Phenolic compounds", na.rm = TRUE), "\n\n")
-
-## Check how many locked compounds are incorrectly overridden by LOWER priorities (should be 0)
-cat("--- Locked incorrectly overridden by LOWER priorities (should be 0) ---\n")
-locked_kept_superclass <- (is_locked_superclass & 
-                             ((sc == "Nucleosides, nucleotides, and analogues" & PyroClass_final == "Nucleosides/nucleotides") |
-                                (sc != "Nucleosides, nucleotides, and analogues" & PyroClass_final == sc)))
-locked_kept_carb <- is_locked_carbohydrate & (PyroClass_final == "Carbohydrates")
-locked_kept <- locked_kept_superclass | locked_kept_carb
-locked_overridden_lower <- all_locked &
-  !(PyroClass_final %in% c("Lignin and derivatives", "Phenolic compounds")) &
-  !locked_kept
-
-cat("Locked overridden by LOWER priorities:", sum(locked_overridden_lower, na.rm = TRUE), "\n")
-if (sum(locked_overridden_lower, na.rm = TRUE) > 0) {
-  cat("WARNING: Some locked categories were incorrectly overridden:\n")
-  print(table(PyroClass_final[locked_overridden_lower]))
-}
-cat("\n")
-
-## Check ClassyFire Lipids retention (should be 100% now)
-cat("--- ClassyFire Lipids retention check ---\n")
-classyfire_lipids_kept <- is_classyfire_lipid & PyroClass_final == "Lipids and lipid-like molecules"
-classyfire_lipids_lost <- is_classyfire_lipid & PyroClass_final != "Lipids and lipid-like molecules"
-cat("ClassyFire Lipids kept:", sum(classyfire_lipids_kept, na.rm = TRUE), "/", sum(is_classyfire_lipid, na.rm = TRUE), "\n")
-cat("ClassyFire Lipids lost to other categories:", sum(classyfire_lipids_lost, na.rm = TRUE), "(should be 0)\n")
-if (sum(classyfire_lipids_lost, na.rm = TRUE) > 0) {
-  cat("WARNING: Some ClassyFire Lipids were overridden. Lost to:\n")
-  print(table(PyroClass_final[classyfire_lipids_lost]))
-}
-cat("\n")
-
-## Check ClassyFire Carbohydrates retention (should be 100% now)
-cat("--- ClassyFire Carbohydrates retention check ---\n")
-classyfire_carb_kept <- is_locked_carbohydrate & PyroClass_final == "Carbohydrates"
-classyfire_carb_lost <- is_locked_carbohydrate & PyroClass_final != "Carbohydrates"
-cat("ClassyFire Carbohydrates kept:", sum(classyfire_carb_kept, na.rm = TRUE), "/", sum(is_locked_carbohydrate, na.rm = TRUE), "\n")
-cat("ClassyFire Carbohydrates lost to other categories:", sum(classyfire_carb_lost, na.rm = TRUE), "(should be 0)\n")
-if (sum(classyfire_carb_lost, na.rm = TRUE) > 0) {
-  cat("WARNING: Some ClassyFire Carbohydrates were overridden. Lost to:\n")
-  print(table(PyroClass_final[classyfire_carb_lost]))
-}
-cat("\n")
-
 cat("========================================\n")
 cat("Final Classification Counts:\n")
 cat("========================================\n")

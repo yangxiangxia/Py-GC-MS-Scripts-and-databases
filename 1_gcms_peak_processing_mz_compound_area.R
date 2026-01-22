@@ -723,7 +723,7 @@ suppressPackageStartupMessages({
 ## Input / Output
 ## -----------------------------
 input_file  <- "peaks_area_with_classification.csv"
-output_file <- "peaks_area_with_classification_revised.csv"
+output_file <- "peaks_area_with_classification_revised2.csv"
 
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 n  <- nrow(df)
@@ -1031,7 +1031,7 @@ is_other_Ntg      <- has_N & !is_N_heterocycles
 ## -----------------------------
 ## (10) FINAL classification (single label, STRICT priority)
 ## -----------------------------
-PyroClass_final <- case_when(
+structural_category_final <- case_when(
   ## 1) Lignin and derivatives (highest priority)
   LgC_flag ~ "Lignin and derivatives",
   
@@ -1102,8 +1102,8 @@ cat("Long-chain alkanes (C23-C33):", sum(is_long_chain_alkane, na.rm = TRUE), "\
 cat("Small alkanes (C<7) -> Other:", sum(is_small_alkane, na.rm = TRUE), "\n")
 cat("Large alkanes (C>33) -> Other:", sum(is_alkane & !is.na(carbon_count) & carbon_count > 33, na.rm = TRUE), "\n\n")
 
-cat("N-heterocyclic compounds:", sum(PyroClass_final == "N-heterocyclic compounds", na.rm = TRUE), "\n")
-cat("Non-heterocyclic N compounds:", sum(PyroClass_final == "Non-heterocyclic N compounds", na.rm = TRUE), "\n")
+cat("N-heterocyclic compounds:", sum(structural_category_final == "N-heterocyclic compounds", na.rm = TRUE), "\n")
+cat("Non-heterocyclic N compounds:", sum(structural_category_final == "Non-heterocyclic N compounds", na.rm = TRUE), "\n")
 
 cat("--- Locked ClassyFire superclasses and specific subclasses ---\n")
 cat("Locked superclasses total:", sum(is_locked_superclass, na.rm = TRUE), "\n")
@@ -1114,14 +1114,24 @@ cat("  Unidentified:", sum(!is.na(sc) & sc == "Unidentified", na.rm = TRUE), "\n
 cat("Locked carbohydrates (subclass):", sum(is_locked_carbohydrate, na.rm = TRUE), "\n")
 cat("Total locked categories:", sum(is_locked_superclass | is_locked_carbohydrate, na.rm = TRUE), "\n\n")
 
-cat("========================================\n")
+## Check how many locked compounds are overridden by higher-priority rules (expected behavior)
+cat("--- Locked overridden by higher priorities (expected) ---\n")
+all_locked <- is_locked_superclass | is_locked_carbohydrate
+cat("Locked but final = Lignin and derivatives:",
+    sum(all_locked & structural_category_final == "Lignin and derivatives", na.rm = TRUE), "\n")
+cat("Locked but final = Phenolic compounds:",
+    sum(all_locked & structural_category_final == "Phenolic compounds", na.rm = TRUE), "\n\n")
+
+
+
+
 cat("Final Classification Counts:\n")
 cat("========================================\n")
-print(table(PyroClass_final, useNA = "ifany"))
+print(table(structural_category_final, useNA = "ifany"))
 cat("\n")
 
 ## -----------------------------
 ## (12) Output
 ## -----------------------------
-out <- df %>% mutate(PyroClass = PyroClass_final)
+out <- df %>% mutate(`structural category` = structural_category_final)
 write.csv(out, output_file, row.names = FALSE)

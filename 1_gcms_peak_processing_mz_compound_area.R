@@ -723,7 +723,7 @@ suppressPackageStartupMessages({
 ## Input / Output
 ## -----------------------------
 input_file  <- "peaks_area_with_classification.csv"
-output_file <- "peaks_area_with_classification_revised2.csv"
+output_file <- "peaks_area_with_classification_revised.csv"
 
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 n  <- nrow(df)

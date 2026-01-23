@@ -669,7 +669,9 @@ write.csv(compound_summary,
 ####################################
 #In this step, you can use "7_filtered_peaks_area_with_classification.csv"
 #Change the identification result of compounds with MF below 80 to "Unidentified", and set the corresponding SMILES to NA.
- 
+#It's important to note that when the InChIKey/InChI/SMILES of a compound are all listed as NA, it means that the database 
+#does not contain the InChIKey/InChI/SMILES for that compound.  Manual checking and addition are required. You can search for the compound on the PubChem website and 
+#add the ClassyFire classification results (https://cfb.fiehnlab.ucdavis.edu/) before performing structural category classification.
 ## =============================================================================
 ## PyGCMS Compound Classification - Conservative Evidence-Based Approach
 ## SMILES-based identification with strict, rule-based criteria
@@ -1029,24 +1031,28 @@ is_N_heterocycles <- has_N & (isT(has_aromatic_N) | isT(has_ring_N))
 is_other_Ntg      <- has_N & !is_N_heterocycles
 
 ## -----------------------------
+## -----------------------------
 ## (10) FINAL classification (single label, STRICT priority)
 ## -----------------------------
 structural_category_final <- case_when(
-  ## 1) Lignin and derivatives (highest priority)
+  ## 1) If InChIKey, InChI, and SMILES are all NA, classify as NA
+  (is.na(smiles) & is.na(sc) & is.na(sb) & is.na(df$InChIKey) & is.na(df$InChI)) ~ NA_character_,
+  
+  ## 2) Lignin and derivatives (highest priority)
   LgC_flag ~ "Lignin and derivatives",
   
-  ## 2) Phenolic compounds
+  ## 3) Phenolic compounds
   is_phenol_rule ~ "Phenolic compounds",
   
-  ## 3) Locked ClassyFire categories (HARD LOCK, after lignin + phenol)
+  ## 4) Locked ClassyFire categories (HARD LOCK, after lignin + phenol)
   !is.na(sc) & sc == "Nucleosides, nucleotides, and analogues" ~ "Nucleosides/nucleotides",
   is_locked_superclass & sc != "Nucleosides, nucleotides, and analogues" ~ sc,
   is_locked_carbohydrate ~ "Carbohydrates",
   
-  ## 4) Benzene derivatives
+  ## 5) Benzene derivatives
   is_benzene_derivative ~ "Benzene derivatives",
   
-  ## 5-6) Aromatic hydrocarbons (hydrocarbons only)
+  ## 6) Aromatic hydrocarbons (hydrocarbons only)
   is_PAH ~ "Polycyclic aromatic hydrocarbons",
   is_mono_arom_hc ~ "Monocyclic aromatic hydrocarbons",
   
@@ -1065,7 +1071,7 @@ structural_category_final <- case_when(
   ## 13) Additional Carbohydrates (structure-based, ClassyFire Carbohydrates already locked at priority 3)
   is_structural_carb ~ "Carbohydrates",
   
-  ## 14) Fallback (includes small alkanes C<7, large alkanes C>33, and other unclassified compounds)
+  ## 14) Fallback (If no match, classify as "Others")
   TRUE ~ "Others"
 )
 

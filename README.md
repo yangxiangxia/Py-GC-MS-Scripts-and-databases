@@ -1,4 +1,4 @@
-# Soil Py-GC-MS workflow
+# Soil organic matter Py-GC-MS workflow
 
 Scripts for processing soil organic matter Py-GC-MS data, including peak deconvolution and alignment, compound annotation, SMILES retrieval, and chemical classification.
 

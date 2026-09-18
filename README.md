@@ -25,8 +25,8 @@ Chemical classification uses `rcdk`, which requires Java. Check the installation
 Open a terminal in the repository root. Set the dataset name and replace the three input paths below with your own locations:
 
 ```bash
-export DATASET_ID="case2_alignment"
-export CDF_DIR_OVERRIDE="/path/to/case2 spectrum"
+export DATASET_ID="example"
+export CDF_DIR_OVERRIDE="/path/to/example_cdf"
 export MONA_FILE="/path/to/MoNA-GC-MS.msp"
 export NIST_FILES="/path/to/nist-main.MSP;/path/to/nist-replicates.MSP"
 ```
@@ -38,7 +38,7 @@ export NIST_FILES="/path/to/nist-main.MSP;/path/to/nist-replicates.MSP"
 
 For library preparation, see [Exporting the NIST Mass Spectral Library to MSP Format](NIST_to_MSP.md).
 
-Case 2 raw chromatograms are packaged separately as `Case2_raw_data.zip`. Extract its `case2 spectrum/` folder into the repository root, or set `CDF_DIR_OVERRIDE` to the extracted folder. Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
+An anonymized example dataset will be deposited in Zenodo as Example_PyGCMS_data.zip. The DOI/download link will be added after publication. Extract the archive and set CDF_DIR_OVERRIDE to the extracted example_cdf/ folder. Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
 
 Keep these environment settings in the same terminal for all four stages. To use another Python installation, also set `PYTHON_BIN` to its executable path.
 
@@ -49,6 +49,12 @@ The repository includes the calibration and compound-reference files used by the
 | `ALKANE_RI_FILE` | `alkane_RI.csv` | Alkane carbon numbers, RI values, and retention times |
 | `REFERENCE_RI_INTERNAL_STANDARD_RT_FILE` | `reference_internal_standard_rts.csv` | Internal-standard reference retention times |
 | `SOM_REFERENCE_FILE` | `SOM_PyGCMS_EI_pipeline_reference_library_v1.0.xlsx` | Compound, diagnostic-ion, and literature references |
+
+### Query caching
+
+NIST WebBook RI and PubChem identity queries are cached under `pygcms_method_outputs/shared_cache/` and reused across runs. Missing entries are queried online, and transient query failures are retried. To use existing caches elsewhere, set `RI_CACHE_DIR` and `PUBCHEM_IDENTITY_CACHE_DIR`.
+
+SMILES queries use a separate cache at `pygcms_method_outputs/<DATASET_ID>/work_files/08_smiles/pubchem_smiles_cache.csv`, reused when Stage 3 is rerun for the same dataset. These cache files are generated automatically and do not need to be downloaded with the example data.
 
 ### Preparing the two calibration tables
 

@@ -56,7 +56,7 @@ Both CSV files are stored in the repository root. They were prepared from separa
 
 **`alkane_RI.csv` — n-alkane RI calibration**
 
-1. Deconvolute the direct GC-MS C7–C40 standard run (`C7-C40-3uL-2.cdf`) and identify the n-alkanes using their elution order and EI spectra, including molecular ions where available.
+1. Deconvolute the direct GC-MS C7–C40 standard run (`C7-C40-3uL.cdf`) and identify the n-alkanes using their elution order and EI spectra, including molecular ions where available.
 2. Retain one confirmed RT per carbon number. The supplied table contains 34 selected component RTs, rounded to three decimal places in minutes.
 3. Export `carbon_number`, `RI`, and `RT_min`, assigning `RI = 100 × carbon_number`; `source` records the identification notes. The workflow interpolates between these RT–RI points to calculate sample RI.
 

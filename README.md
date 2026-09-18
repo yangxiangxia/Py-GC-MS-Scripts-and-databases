@@ -96,6 +96,7 @@ The main default settings in [`config.sh`](scripts/pygcms_method_pipeline/config
 | `RI_SUPPORT_WINDOW`, `RI_WEAK_WINDOW` | `20`, `50` | Absolute RI-difference limits for supported and weakly supported candidates |
 | `POST_REVIEW_MERGE_RT_SEC` | `60` | RT window for merging reviewed features with the same identity, in seconds |
 
+Top-20 fallback: The manuscript describes retaining the top five candidates per library. The current code additionally enables a top-20 fallback by default for features that cannot be assigned automatically from the top five candidates. This may be useful when many features remain unresolved. Candidates are reassessed using spectral, RI, and diagnostic-ion evidence; unresolved features still require manual review.
 For another dataset, adjust the detection thresholds, RT/mass ranges, and minimum sample occurrence to match the acquisition and study design. Edit the default values in `config.sh`, or override individual settings before running:
 
 ```bash

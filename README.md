@@ -38,7 +38,7 @@ export NIST_FILES="/path/to/nist-main.MSP;/path/to/nist-replicates.MSP"
 
 For library preparation, see [Exporting the NIST Mass Spectral Library to MSP Format](NIST_to_MSP.md).
 
-An anonymized example dataset will be deposited in Zenodo as Example_PyGCMS_data.zip. The DOI/download link will be added after publication. Extract the archive and set CDF_DIR_OVERRIDE to the extracted example_cdf/ folder. Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
+The example dataset contains 30 Py-GC-MS chromatograms in CDF format and is available on [Zenodo](https://doi.org/10.5281/zenodo.22830473). Extract the archive and set CDF_DIR_OVERRIDE to the extracted example_cdf/ folder. Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
 
 Keep these environment settings in the same terminal for all four stages. To use another Python installation, also set `PYTHON_BIN` to its executable path.
 

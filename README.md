@@ -38,7 +38,15 @@ export NIST_FILES="/path/to/nist-main.MSP;/path/to/nist-replicates.MSP"
 
 For library preparation, see [Exporting the NIST Mass Spectral Library to MSP Format](NIST_to_MSP.md).
 
-The example dataset contains 30 Py-GC-MS chromatograms in CDF format and is available on [Zenodo](https://doi.org/10.5281/zenodo.22830473). Extract the archive and set CDF_DIR_OVERRIDE to the extracted example_cdf/ folder. Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
+The example dataset contains 20 Py-GC-MS chromatograms in CDF format and is available on [Zenodo](https://zenodo.org/records/23718826). Download `Example_PyGCMS_data.zip`, extract it, and set `CDF_DIR_OVERRIDE` to the extracted `example_cdf/` folder. The archive contains `Sample_001.cdf` through `Sample_020.cdf` and a README. This subset is provided for workflow demonstration and does not contain the complete dataset used for the manuscript case study.
+
+For this example, use internal-standard-guided blockwise alignment so that the retention times required for internal-standard RT correction are extracted:
+
+```bash
+export ALIGNMENT_MODE="blockwise"
+```
+
+Prepare the EI spectral libraries separately using [MoNA](https://mona.fiehnlab.ucdavis.edu/) and your [NIST library installation](https://www.nist.gov/srd/nist-standard-reference-database-1a).
 
 Keep these environment settings in the same terminal for all four stages. To use another Python installation, also set `PYTHON_BIN` to its executable path.
 
@@ -155,7 +163,7 @@ bash scripts/pygcms_method_pipeline/02_compound_annotation_and_review.sh
 
 This stage searches both spectral libraries, combines spectral and RI evidence, and prepares the annotation review table.
 
-Open `pygcms_method_outputs/case2_alignment/main_outputs/annotation_review_CHECK.csv` (replace `case2_alignment` with your dataset ID). Review the candidate names, spectral scores, RI evidence, and diagnostic ions. Fill or correct `Final_Identification`; use `Unidentified` where no identity can be assigned, and record comments in `Review_Notes`. Keep all feature rows, IDs, and column names, including the automatically filled assignments.
+Open `pygcms_method_outputs/example/main_outputs/annotation_review_CHECK.csv` (replace `example` with your dataset ID). Review the candidate names, spectral scores, RI evidence, and diagnostic ions. Fill or correct `Final_Identification`; use `Unidentified` where no identity can be assigned, and record comments in `Review_Notes`. Keep all feature rows, IDs, and column names, including the automatically filled assignments.
 
 When changing `Final_Identification`, also update `Formula` to the reviewed identity, or clear it if uncertain. The script does not infer a new formula from the edited name. Spectral scores, reference RI, and diagnostic evidence remain records of the original candidate assessment.
 
